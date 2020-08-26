@@ -129,8 +129,8 @@ static int prefix_suffix_cmp(UNUSED void *instance,
 
 	if (!request) return -1;
 
-	username = fr_pair_find_by_da(request->packet->vps, attr_stripped_user_name, TAG_ANY);
-	if (!username) username = fr_pair_find_by_da(request->packet->vps, attr_user_name, TAG_ANY);
+	username = fr_pair_find_by_da(request->packet->vps, attr_stripped_user_name);
+	if (!username) username = fr_pair_find_by_da(request->packet->vps, attr_user_name);
 	if (!username) return -1;
 
 	VP_VERIFY(check);
@@ -158,13 +158,13 @@ static int prefix_suffix_cmp(UNUSED void *instance,
 	/*
 	 *	If Strip-User-Name == No, then don't do any more.
 	 */
-	vp = fr_pair_find_by_da(check_list, attr_strip_user_name, TAG_ANY);
+	vp = fr_pair_find_by_da(check_list, attr_strip_user_name);
 	if (vp && !vp->vp_uint32) return ret;
 
 	/*
 	 *	See where to put the stripped user name.
 	 */
-	vp = fr_pair_find_by_da(check_list, attr_stripped_user_name, TAG_ANY);
+	vp = fr_pair_find_by_da(check_list, attr_stripped_user_name);
 	if (!vp) {
 		/*
 		 *	If "request" is NULL, then the memory will be
@@ -401,15 +401,6 @@ int paircmp_pairs(UNUSED REQUEST *request, VALUE_PAIR *check, VALUE_PAIR *vp)
 	if (vp->vp_type != check->vp_type) return -1;
 
 	/*
-	 *	Tagged attributes are equal if and only if both the
-	 *	tag AND value match.
-	 */
-	if (check->da->flags.has_tag && !TAG_EQ(check->tag, vp->tag)) {
-		ret = ((int) vp->tag) - ((int) check->tag);
-		if (ret != 0) goto finish;
-	}
-
-	/*
 	 *	Not a regular expression, compare the types.
 	 */
 	switch (check->vp_type) {
@@ -607,7 +598,7 @@ int paircmp(REQUEST *request,
 				WARN("Are you sure you don't mean Cleartext-Password?");
 				WARN("See \"man rlm_pap\" for more information");
 			}
-			if (fr_pair_find_by_num(request_list, 0, FR_USER_PASSWORD, TAG_ANY) == NULL) continue;
+			if (fr_pair_find_by_num(request_list, 0, FR_USER_PASSWORD) == NULL) continue;
 		}
 
 		/*

@@ -395,7 +395,6 @@ int map_to_list_mod(TALLOC_CTX *ctx, vp_list_mod_t **out,
 			if (tmpl_attr_copy(n_mod->lhs, mutated->lhs) < 0) goto error;
 
 			tmpl_attr_set_leaf_da(n_mod->lhs, vp->da);
-			tmpl_attr_set_leaf_tag(n_mod->lhs, vp->tag);
 
 			/*
 			 *	For the RHS we copy the value of the attribute
@@ -778,8 +777,6 @@ static inline VALUE_PAIR *map_list_mod_to_vp(TALLOC_CTX *ctx, tmpl_t const *attr
 	VALUE_PAIR *vp;
 
 	MEM(vp = fr_pair_afrom_da(ctx, tmpl_da(attr)));
-	vp->tag = tmpl_tag(attr);
-
 	if (fr_value_box_copy(vp, &vp->data, value) < 0) {
 		talloc_free(vp);
 		return NULL;
@@ -1009,7 +1006,7 @@ int map_list_mod_apply(REQUEST *request, vp_list_mod_t const *vlm)
 				for (vp_to = fr_cursor_head(&to);
 				     vp_to;
 				     vp_to = fr_cursor_next(&to)) {
-					if (fr_pair_cmp_by_da_tag(vp_to, vp) == 0) exists = true;
+					if (fr_pair_cmp_by_da(vp_to, vp) == 0) exists = true;
 				}
 
 				if (exists) {
@@ -1072,7 +1069,7 @@ int map_list_mod_apply(REQUEST *request, vp_list_mod_t const *vlm)
 		if (tmpl_num(map->lhs) != NUM_ALL) {
 			fr_cursor_free_item(&list);
 		/*
-		 *	Wildcard: delete all of the matching ones, based on tag.
+		 *	Wildcard: delete all of the matching ones
 		 */
 		} else {
 			fr_cursor_free_list(&list);		/* Remember, we're using a custom iterator */

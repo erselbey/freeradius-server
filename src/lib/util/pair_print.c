@@ -71,7 +71,7 @@ char *fr_pair_type_asprint(TALLOC_CTX *ctx, fr_type_t type)
  *
  * Print a VALUE_PAIR in the format:
 @verbatim
-	<attribute_name>[:tag] <op> <value>
+	<attribute_name> <op> <value>
 @endverbatim
  * to a string.
  *
@@ -100,11 +100,7 @@ size_t fr_pair_snprint(char *out, size_t outlen, VALUE_PAIR const *vp)
 		token = "<INVALID-TOKEN>";
 	}
 
-	if (vp->da->flags.has_tag && (vp->tag != 0) && (vp->tag != TAG_ANY)) {
-		len = snprintf(out, freespace, "%s:%d %s ", vp->da->name, vp->tag, token);
-	} else {
-		len = snprintf(out, freespace, "%s %s ", vp->da->name, token);
-	}
+	len = snprintf(out, freespace, "%s %s ", vp->da->name, token);
 
 	if (is_truncated(len, freespace)) return len;
 	out += len;
@@ -178,7 +174,7 @@ void _fr_pair_list_log(fr_log_t const *log, VALUE_PAIR const *vp, char const *fi
  *
  * Print a VALUE_PAIR in the format:
 @verbatim
-	<attribute_name>[:tag] <op> <value>
+	<attribute_name> <op> <value>
 @endverbatim
  * to a string.
  *
@@ -204,18 +200,10 @@ char *fr_pair_asprint(TALLOC_CTX *ctx, VALUE_PAIR const *vp, char quote)
 
 	value = fr_pair_value_asprint(ctx, vp, quote);
 
-	if (vp->da->flags.has_tag) {
-		if (quote && (vp->vp_type == FR_TYPE_STRING)) {
-			str = talloc_typed_asprintf(ctx, "%s:%d %s %c%s%c", vp->da->name, vp->tag, token, quote, value, quote);
-		} else {
-			str = talloc_typed_asprintf(ctx, "%s:%d %s %s", vp->da->name, vp->tag, token, value);
-		}
+	if (quote && (vp->vp_type == FR_TYPE_STRING)) {
+		str = talloc_typed_asprintf(ctx, "%s %s %c%s%c", vp->da->name, token, quote, value, quote);
 	} else {
-		if (quote && (vp->vp_type == FR_TYPE_STRING)) {
-			str = talloc_typed_asprintf(ctx, "%s %s %c%s%c", vp->da->name, token, quote, value, quote);
-		} else {
-			str = talloc_typed_asprintf(ctx, "%s %s %s", vp->da->name, token, value);
-		}
+		str = talloc_typed_asprintf(ctx, "%s %s %s", vp->da->name, token, value);
 	}
 
 	talloc_free(value);
@@ -240,18 +228,6 @@ static inline ssize_t fr_pair_snprint_attr(char * const out, char const * const 
 	RETURN_SLEN_IF_NO_SPACE(len, p, end);
 	memcpy(p, vp->da->name, len);
 	p += len;
-
-	if (vp->tag) {
-		size_t ret;
-
-		RETURN_SLEN_IF_NO_SPACE(1, p, end);
-		*p++ = ':';
-
-		ret = snprintf(p, end - p, "%u", vp->tag);
-		RETURN_SLEN_IF_TRUNCATED(ret, p, end);
-
-		p += ret;
-	}
 
 	return p - out;
 }

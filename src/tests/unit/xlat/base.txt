@@ -55,32 +55,8 @@ match %{test:bar}
 xlat %{Tunnel-Password}
 match %{Tunnel-Password}
 
-xlat %{Tunnel-Password:1}
-match %{Tunnel-Password:1}
-
-xlat %{Tunnel-Password:1[3]}
-match %{Tunnel-Password:1[3]}
-
-xlat %{Tunnel-Password:1[*]}
-match %{Tunnel-Password:1[*]}
-
-xlat %{Tunnel-Password:1[#]}
-match %{Tunnel-Password:1[#]}
-
 xlat %{reply:Tunnel-Password}
 match %{reply:Tunnel-Password}
-
-xlat %{reply:Tunnel-Password:1}
-match %{reply:Tunnel-Password:1}
-
-xlat %{reply:Tunnel-Password:1[3]}
-match %{reply:Tunnel-Password:1[3]}
-
-xlat %{reply:Tunnel-Password:1[*]}
-match %{reply:Tunnel-Password:1[*]}
-
-xlat %{reply:Tunnel-Password:1[#]}
-match %{reply:Tunnel-Password:1[#]}
 
 xlat %{User-Name[3]}
 match %{User-Name[3]}
@@ -291,4 +267,4 @@ xlat_argv echo hello %{Tmp-String-0}:1234 world
 match [0]{ echo }, [1]{ hello }, [2]{ %{Tmp-String-0}:1234 }, [3]{ world }
 
 count
-match 173
+match 157

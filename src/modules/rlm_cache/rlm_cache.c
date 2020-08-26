@@ -407,7 +407,7 @@ static rlm_rcode_t cache_insert(rlm_cache_t const *inst, REQUEST *request, rlm_c
 			 *	which is a combination of the LHS list and the attribute.
 			 */
 			case TMPL_TYPE_LIST:
-				if (tmpl_attr_afrom_list(c_map, &c_map->lhs, map->lhs, vp->da, vp->tag) < 0) {
+				if (tmpl_attr_afrom_list(c_map, &c_map->lhs, map->lhs, vp->da) < 0) {
 					RPERROR("Failed attribute -> list copy");
 					goto error;
 				}
@@ -427,7 +427,7 @@ static rlm_rcode_t cache_insert(rlm_cache_t const *inst, REQUEST *request, rlm_c
 	/*
 	 *	Check to see if we need to merge the entry into the request
 	 */
-	vp = fr_pair_find_by_da(request->control, attr_cache_merge_new, TAG_ANY);
+	vp = fr_pair_find_by_da(request->control, attr_cache_merge_new);
 	if (vp && vp->vp_bool) merge = true;
 
 	if (merge) cache_merge(inst, request, c);
@@ -564,7 +564,7 @@ static rlm_rcode_t CC_HINT(nonnull) mod_cache_it(module_ctx_t const *mctx, REQUE
 	 *	If Cache-Status-Only == yes, only return whether we found a
 	 *	valid cache entry
 	 */
-	vp = fr_pair_find_by_da(request->control, attr_cache_status_only, TAG_ANY);
+	vp = fr_pair_find_by_da(request->control, attr_cache_status_only);
 	if (vp && vp->vp_bool) {
 		RINDENT();
 		RDEBUG3("status-only: yes");
@@ -584,13 +584,13 @@ static rlm_rcode_t CC_HINT(nonnull) mod_cache_it(module_ctx_t const *mctx, REQUE
 	/*
 	 *	Figure out what operation we're doing
 	 */
-	vp = fr_pair_find_by_da(request->control, attr_cache_allow_merge, TAG_ANY);
+	vp = fr_pair_find_by_da(request->control, attr_cache_allow_merge);
 	if (vp) merge = vp->vp_bool;
 
-	vp = fr_pair_find_by_da(request->control, attr_cache_allow_insert, TAG_ANY);
+	vp = fr_pair_find_by_da(request->control, attr_cache_allow_insert);
 	if (vp) insert = vp->vp_bool;
 
-	vp = fr_pair_find_by_da(request->control, attr_cache_ttl, TAG_ANY);
+	vp = fr_pair_find_by_da(request->control, attr_cache_ttl);
 	if (vp) {
 		if (vp->vp_int32 == 0) {
 			expire = true;
@@ -839,7 +839,6 @@ static ssize_t cache_xlat(TALLOC_CTX *ctx, char **out, UNUSED size_t freespace,
 
 	for (map = c->maps; map; map = map->next) {
 		if ((tmpl_da(map->lhs) != tmpl_da(target)) ||
-		    (tmpl_tag(map->lhs) != tmpl_tag(target)) ||
 		    (tmpl_list(map->lhs) != tmpl_list(target))) continue;
 
 		*out = fr_value_box_asprint(request, tmpl_value(map->rhs), '\0');

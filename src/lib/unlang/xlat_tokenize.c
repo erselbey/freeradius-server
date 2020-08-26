@@ -531,11 +531,7 @@ static int xlat_tokenize_expansion(TALLOC_CTX *ctx, xlat_exp_t **head, fr_sbuff_
 	/*
 	 *	%{Attr-Name}
 	 *	%{Attr-Name[#]}
-	 *	%{Tunnel-Password:1}
-	 *	%{Tunnel-Password:1[#]}
 	 *	%{request:Attr-Name}
-	 *	%{request:Tunnel-Password:1}
-	 *	%{request:Tunnel-Password:1[#]}
 	 *	%{mod:foo}
 	 */
 
@@ -996,16 +992,12 @@ static void xlat_tokenize_debug(REQUEST *request, xlat_exp_t const *node)
 			fr_assert(tmpl_da(node->attr) != NULL);
 			RDEBUG3("attribute --> %s", tmpl_da(node->attr)->name);
 			fr_assert(node->child == NULL);
-			if ((tmpl_tag(node->attr) != TAG_ANY) || (tmpl_num(node->attr) != NUM_ANY)) {
+			if (tmpl_num(node->attr) != NUM_ANY) {
 				RDEBUG3("{");
 
 				RINDENT();
 				RDEBUG3("ref  %d", tmpl_request(node->attr));
 				RDEBUG3("list %d", tmpl_list(node->attr));
-
-				if (tmpl_tag(node->attr) != TAG_ANY) {
-					RDEBUG3("tag %d", tmpl_tag(node->attr));
-				}
 				if (tmpl_num(node->attr) != NUM_ANY) {
 					if (tmpl_num(node->attr) == NUM_COUNT) {
 						RDEBUG3("[#]");

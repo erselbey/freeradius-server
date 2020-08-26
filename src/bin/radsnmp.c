@@ -585,7 +585,7 @@ static int radsnmp_set_response(int fd, fr_dict_attr_t const *error, VALUE_PAIR 
 	struct iovec	io_vector[2];
 	char		newline[] = "\n";
 
-	vp = fr_pair_find_by_da(head, error, TAG_NONE);
+	vp = fr_pair_find_by_da(head, error);
 	if (!vp) {
 		if (write(fd, "DONE\n", 5) < 0) {
 			fr_strerror_printf("Failed writing set response: %s", fr_syserror(errno));

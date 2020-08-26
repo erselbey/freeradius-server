@@ -863,20 +863,11 @@ static ssize_t xlat_func_debug_attr(UNUSED TALLOC_CTX *ctx, UNUSED char **out, U
 		fr_table_num_ordered_t const	*type;
 		size_t				i;
 
-		if (vp->da->flags.has_tag) {
-			RIDEBUG2("&%s:%s:%i %s %pV",
-				fr_table_str_by_value(pair_list_table, tmpl_list(vpt), "<INVALID>"),
-				vp->da->name,
-				vp->tag,
-				fr_table_str_by_value(fr_tokens_table, vp->op, "<INVALID>"),
-				&vp->data);
-		} else {
-			RIDEBUG2("&%s:%s %s %pV",
-				fr_table_str_by_value(pair_list_table, tmpl_list(vpt), "<INVALID>"),
-				vp->da->name,
-				fr_table_str_by_value(fr_tokens_table, vp->op, "<INVALID>"),
-				&vp->data);
-		}
+		RIDEBUG2("&%s:%s %s %pV",
+			fr_table_str_by_value(pair_list_table, tmpl_list(vpt), "<INVALID>"),
+			vp->da->name,
+			fr_table_str_by_value(fr_tokens_table, vp->op, "<INVALID>"),
+			&vp->data);
 
 		if (!RDEBUG_ENABLED3) continue;
 
@@ -1040,8 +1031,6 @@ static ssize_t xlat_func_explode(TALLOC_CTX *ctx, char **out, size_t outlen,
 			}
 
 			MEM(nvp = fr_pair_afrom_da(talloc_parent(vp), vp->da));
-			nvp->tag = vp->tag;
-
 			switch (vp->vp_type) {
 			case FR_TYPE_OCTETS:
 				MEM(fr_pair_value_memdup(nvp, (uint8_t const *)p, q - p, vp->vp_tainted) == 0);
@@ -3010,54 +2999,6 @@ static xlat_action_t xlat_func_sub(TALLOC_CTX *ctx, fr_cursor_t *out,
 	return XLAT_ACTION_DONE;
 }
 
-
-/** Return the tag of an attribute reference
- *
- * Example (Tunnel-Server-Endpoint:1 = "192.0.2.1"):
-@verbatim
-"%{tag:Tunnel-Server-Endpoint}" == "1"
-@endverbatim
- *
- * @ingroup xlat_functions
- */
-static xlat_action_t xlat_func_tag(TALLOC_CTX *ctx, fr_cursor_t *out,
-				   REQUEST *request, UNUSED void const *xlat_inst,
-				   UNUSED void *xlat_thread_inst, fr_value_box_t **in)
-{
-	fr_value_box_t	*vb;
-	VALUE_PAIR	*vp;
-	fr_cursor_t	*cursor;
-
-	if (!*in) {
-		REDEBUG("Missing attribute reference");
-		return XLAT_ACTION_FAIL;
-	}
-
-	/*
-	 *	Concatenate all input
-	 */
-	if (fr_value_box_list_concat(ctx, *in, in, FR_TYPE_STRING, true) < 0) {
-		RPEDEBUG("Failed concatenating input");
-		return XLAT_ACTION_FAIL;
-	}
-
-	if (xlat_fmt_to_cursor(NULL, &cursor, NULL, request, (*in)->vb_strvalue) < 0) return XLAT_ACTION_FAIL;
-
-	for (vp = fr_cursor_head(cursor);
-	     vp;
-	     vp = fr_cursor_next(cursor)) {
-		if (!vp->da->flags.has_tag || !TAG_VALID(vp->tag)) continue;
-
-		MEM(vb = fr_value_box_alloc(ctx, FR_TYPE_INT8, NULL, false));
-		vb->vb_int8 = vp->tag;
-		fr_cursor_append(out, vb);
-	}
-	talloc_free(cursor);
-
-	return XLAT_ACTION_DONE;
-}
-
-
 /** Change case of a string
  *
  * If upper is true, change to uppercase, otherwise, change to lowercase
@@ -3395,7 +3336,6 @@ int xlat_init(void)
 	xlat_register(NULL, "string", xlat_func_string, false);
 	xlat_register(NULL, "strlen", xlat_func_strlen, false);
 	xlat_register(NULL, "sub", xlat_func_sub, false);
-	xlat_register(NULL, "tag", xlat_func_tag, false);
 	xlat_register(NULL, "tolower", xlat_func_tolower, false);
 	xlat_register(NULL, "toupper", xlat_func_toupper, false);
 	xlat_register(NULL, "urlquote", xlat_func_urlquote, false);

@@ -679,26 +679,13 @@ static void perl_store_vps(UNUSED TALLOC_CTX *ctx, REQUEST *request, VALUE_PAIR 
 	fr_cursor_t cursor;
 
 	RINDENT();
-	fr_pair_list_sort(vps, fr_pair_cmp_by_da_tag);
+	fr_pair_list_sort(vps, fr_pair_cmp_by_da);
 	for (vp = fr_cursor_init(&cursor, vps);
 	     vp;
 	     vp = fr_cursor_next(&cursor)) {
 		VALUE_PAIR *next;
-
 		char const *name;
-		char namebuf[256];
-
-		/*
-		 *	Tagged attributes are added to the hash with name
-		 *	<attribute>:<tag>, others just use the normal attribute
-		 *	name as the key.
-		 */
-		if (vp->da->flags.has_tag && (vp->tag != TAG_ANY)) {
-			snprintf(namebuf, sizeof(namebuf), "%s:%d", vp->da->name, vp->tag);
-			name = namebuf;
-		} else {
-			name = vp->da->name;
-		}
+		name = vp->da->name;
 
 		/*
 		 *	We've sorted by type, then tag, so attributes of the
@@ -969,7 +956,7 @@ static rlm_rcode_t CC_HINT(nonnull) mod_accounting(module_ctx_t const *mctx, REQ
 	VALUE_PAIR		*pair;
 	int 			acct_status_type = 0;
 
-	pair = fr_pair_find_by_da(request->packet->vps, attr_acct_status_type, TAG_ANY);
+	pair = fr_pair_find_by_da(request->packet->vps, attr_acct_status_type);
 	if (pair != NULL) {
 		acct_status_type = pair->vp_uint32;
 	} else {

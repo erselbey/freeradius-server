@@ -102,9 +102,6 @@ struct value_pair_s {
 	struct {
 		fr_token_t		op;			//!< Operator to use when moving or inserting
 								//!< valuepair into a list.
-
-		int8_t			tag;			//!< Tag value used to group valuepairs.
-
 		char const 		*xlat;			//!< Source string for xlat expansion.
 	};
 
@@ -183,18 +180,7 @@ typedef struct {
 #define vp_type			data.type
 #define vp_tainted		data.tainted
 
-#define TAG_VALID(x)		((x) > 0 && (x) < 0x20)
-#define TAG_VALID_ZERO(x)      	((x) >= 0 && (x) < 0x20)
-#define TAG_ANY			INT8_MIN
-#define TAG_NONE		0
-/** Check if tags are equal
- *
- * @param _x tag were matching on.
- * @param _y tag belonging to the attribute were checking.
- */
-#define TAG_EQ(_x, _y) ((_x == _y) || (_x == TAG_ANY) || ((_x == TAG_NONE) && (_y == TAG_ANY)))
-#define ATTR_TAG_MATCH(_a, _t) (!_a->da->flags.has_tag || TAG_EQ(_t, _a->tag))
-#define ATTRIBUTE_EQ(_x, _y) ((_x && _y) && (_x->da == _y->da) && (!_x->da->flags.has_tag || TAG_EQ(_x->tag, _y->tag)))
+#define ATTRIBUTE_EQ(_x, _y) ((_x && _y) && (_x->da == _y->da))
 
 #  ifdef WITH_VERIFY_PTR
 void		fr_pair_verify(char const *file, int line, VALUE_PAIR const *vp);
@@ -257,19 +243,17 @@ static inline VALUE_PAIR *fr_cursor_iter_by_ancestor_init(fr_cursor_t *cursor,
 	return fr_cursor_talloc_iter_init(cursor, list, fr_pair_iter_next_by_ancestor, da, VALUE_PAIR);
 }
 
-VALUE_PAIR	*fr_pair_find_by_da(VALUE_PAIR *head, fr_dict_attr_t const *da, int8_t tag);
+VALUE_PAIR	*fr_pair_find_by_da(VALUE_PAIR *head, fr_dict_attr_t const *da);
 
-VALUE_PAIR	*fr_pair_find_by_num(VALUE_PAIR *head, unsigned int vendor, unsigned int attr, int8_t tag);
+VALUE_PAIR	*fr_pair_find_by_num(VALUE_PAIR *head, unsigned int vendor, unsigned int attr);
 
-VALUE_PAIR	*fr_pair_find_by_child_num(VALUE_PAIR *head, fr_dict_attr_t const *parent,
-					   unsigned int attr, int8_t tag);
+VALUE_PAIR	*fr_pair_find_by_child_num(VALUE_PAIR *head, fr_dict_attr_t const *parent, unsigned int attr);
 
 void		fr_pair_add(VALUE_PAIR **head, VALUE_PAIR *vp);
 
 void		fr_pair_replace(VALUE_PAIR **head, VALUE_PAIR *add);
 
-void		fr_pair_delete_by_child_num(VALUE_PAIR **head, fr_dict_attr_t const *parent,
-					    unsigned int attr, int8_t tag);
+void		fr_pair_delete_by_child_num(VALUE_PAIR **head, fr_dict_attr_t const *parent, unsigned int attr);
 
 int		fr_pair_add_by_da(TALLOC_CTX *ctx, VALUE_PAIR **out, VALUE_PAIR **list, fr_dict_attr_t const *da);
 
@@ -282,9 +266,9 @@ void		fr_pair_delete(VALUE_PAIR **list, VALUE_PAIR const *vp);
 /* functions for FR_TYPE_GROUP */
 fr_pair_list_t	*fr_pair_group_get_sublist(VALUE_PAIR *head);
 
-VALUE_PAIR	*fr_pair_group_find_by_da(fr_pair_list_t *head, fr_dict_attr_t const *da, int8_t tag);
+VALUE_PAIR	*fr_pair_group_find_by_da(fr_pair_list_t *head, fr_dict_attr_t const *da);
 
-VALUE_PAIR	*fr_pair_group_find_by_num(fr_pair_list_t *head, unsigned int vendor, unsigned int attr, int8_t tag);
+VALUE_PAIR	*fr_pair_group_find_by_num(fr_pair_list_t *head, unsigned int vendor, unsigned int attr);
 
 void		fr_pair_group_add(fr_pair_list_t *head, VALUE_PAIR *vp);
 
@@ -312,8 +296,8 @@ typedef		int8_t (*fr_cmp_t)(void const *a, void const *b);
  *	- -1 on failure.
  */
 #define		fr_pair_cmp_op(_op, _a, _b)	fr_value_box_cmp_op(_op, &_a->data, &_b->data)
-int8_t		fr_pair_cmp_by_da_tag(void const *a, void const *b);
-int8_t		fr_pair_cmp_by_parent_num_tag(void const *a, void const *b);
+int8_t		fr_pair_cmp_by_da(void const *a, void const *b);
+int8_t		fr_pair_cmp_by_parent_num(void const *a, void const *b);
 int		fr_pair_cmp(VALUE_PAIR *a, VALUE_PAIR *b);
 int		fr_pair_list_cmp(VALUE_PAIR *a, VALUE_PAIR *b);
 void		fr_pair_list_sort(VALUE_PAIR **vps, fr_cmp_t cmp);

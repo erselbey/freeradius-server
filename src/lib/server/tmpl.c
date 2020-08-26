@@ -197,10 +197,7 @@ size_t radius_list_name(pair_list_t *out, char const *name, pair_list_t def)
 		return 0;
 
 	/*
-	 *	It may be a list qualifier delimiter. Because of tags
-	 *	We need to check that it doesn't look like a tag suffix.
-	 *	We do this by looking at the chars between ':' and the
-	 *	next token delimiter, and seeing if they're all digits.
+	 *	It may be a list qualifier delimiter
 	 */
 	case ':':
 	{
@@ -209,11 +206,6 @@ size_t radius_list_name(pair_list_t *out, char const *name, pair_list_t def)
 		if (isdigit((int) *d)) {
 			while (isdigit((int) *d)) d++;
 
-			/*
-			 *	Char after the number string
-			 *	was a token delimiter, so this is a
-			 *	tag, not a list qualifier.
-			 */
 			if (!fr_dict_attr_allowed_chars[(uint8_t) *d]) {
 				*out = def;
 				return 0;
@@ -785,11 +777,6 @@ void tmpl_attr_debug(tmpl_t const *vpt)
 		switch (ar->type) {
 		case TMPL_ATTR_TYPE_NORMAL:
 		case TMPL_ATTR_TYPE_UNKNOWN:
-		{
-			char tag[8];
-
-			snprintf(tag, sizeof(tag), "%u", ar->tag);
-
 			if (!ar->da) {
 				INFO("\t[%u] null%s%s%s",
 				     i,
@@ -799,12 +786,10 @@ void tmpl_attr_debug(tmpl_t const *vpt)
 				goto next;
 			}
 
-			INFO("\t[%u] %s %s%s%s%s%s%s (%u)",
+			INFO("\t[%u] %s %s%s%s%s (%u)",
 			     i,
 			     fr_table_str_by_value(fr_value_box_type_table, ar->da->type, "<INVALID>"),
 			     ar->da->name,
-			     ar->tag != TAG_NONE ? ":" : "",
-			     ar->tag != TAG_NONE ? tag : "",
 			     ar->num != NUM_ANY ? "[" : "",
 			     ar->num != NUM_ANY ? fr_table_str_by_value(attr_num_table, ar->num, buffer) : "",
 			     ar->num != NUM_ANY ? "]" : "",
@@ -813,7 +798,6 @@ void tmpl_attr_debug(tmpl_t const *vpt)
 			if (ar->da->parent) INFO("\t    parent     : %s", ar->da->parent->name);
 			INFO("\t    is_raw     : %pV", fr_box_bool(ar->da->flags.is_raw));
 			INFO("\t    is_unknown : %pV", fr_box_bool(ar->da->flags.is_unknown));
-		}
 			break;
 
 
@@ -867,8 +851,6 @@ int tmpl_attr_copy(tmpl_t *dst, tmpl_t const *src)
 	 	default:
 	 		if (!fr_cond_assert(0)) return -1;
 	 	}
-
-	 	dst_ar->ar_tag = src_ar->ar_tag;
 	 	dst_ar->ar_num = src_ar->ar_num;
 	}
 
@@ -1102,22 +1084,6 @@ void tmpl_attr_rewrite_num(tmpl_t *vpt, int16_t from, int16_t to)
 	TMPL_ATTR_VERIFY(vpt);
 }
 
-void tmpl_attr_set_leaf_tag(tmpl_t *vpt, int8_t tag)
-{
-	tmpl_attr_t *ref;
-
-	tmpl_assert_type(tmpl_is_attr(vpt) || tmpl_is_list(vpt) || tmpl_is_attr_unparsed(vpt));
-
-	if (fr_dlist_num_elements(&vpt->data.attribute.ar) == 0) {
-		ref = tmpl_ar_add(vpt, TMPL_ATTR_TYPE_NORMAL);
-	} else {
-		ref = fr_dlist_tail(&vpt->data.attribute.ar);
-	}
-	ref->tag = tag;
-
-	TMPL_ATTR_VERIFY(vpt);
-}
-
 void tmpl_attr_set_unparsed(tmpl_t *vpt, char const *name, size_t len)
 {
 	tmpl_attr_t *ref;
@@ -1232,8 +1198,7 @@ void tmpl_attr_set_list(tmpl_t *vpt, pair_list_t list)
 /** Create a new tmpl from a list tmpl and a da
  *
  */
-int tmpl_attr_afrom_list(TALLOC_CTX *ctx, tmpl_t **out, tmpl_t const *list,
-			 fr_dict_attr_t const *da, int8_t tag)
+int tmpl_attr_afrom_list(TALLOC_CTX *ctx, tmpl_t **out, tmpl_t const *list, fr_dict_attr_t const *da)
 {
 	tmpl_t *vpt;
 
@@ -1249,7 +1214,6 @@ int tmpl_attr_afrom_list(TALLOC_CTX *ctx, tmpl_t **out, tmpl_t const *list,
 	tmpl_attr_set_list(vpt, tmpl_list(list));	/* Remove when lists are attributes */
 	tmpl_attr_set_leaf_da(vpt, da);			/* This should add a new da when lists are attributes */
 	tmpl_attr_set_leaf_num(vpt, tmpl_num(list));
-	tmpl_attr_set_leaf_tag(vpt, tag);
 
 	/*
 	 *	We need to rebuild the attribute name, to be the
@@ -1408,84 +1372,6 @@ static inline bool CC_HINT(always_inline) tmpl_substr_terminal_check(fr_sbuff_t 
 	return ret;
 }
 
-/** Parse a string into a TMPL_TYPE_ATTR_* or #TMPL_TYPE_LIST type #tmpl_t
- *
- * @param[out] err	Parse error code.
- * @param[in] ar	to populate filter for.
- * @param[in] name	containing more attribute ref data.
- * @return
- *	- 1 on success with tag parsed.
- *	- 0 on success.
- *	- -1 on failure.
- */
-static int tmpl_attr_ref_parse_tag(attr_ref_error_t *err, tmpl_attr_t *ar, fr_sbuff_t *name)
-{
-	/*
-	 *	If it's an attribute, look for a tag.
-	 *
-	 *	Note that we check for tags even if the attribute
-	 *	isn't tagged.  This lets us print more useful error
-	 *	messages.
-	 */
-	if (!fr_sbuff_is_char(name, ':')) {
-		/*
-		 *	The attribute is tagged, but the admin didn't
-		 *	specify one.  This means it's likely a
-		 *	"search" thingy.. i.e. "find me ANY attribute,
-		 *	no matter what the tag".
-		 */
-		if ((ar->type == TMPL_ATTR_TYPE_NORMAL) && ar->ar_da->flags.has_tag) ar->ar_tag = TAG_ANY;
-
-		return 0;
-	}
-	/*
-	 *	We always record tags for unparsed
-	 *	attributes as we don't know if
-	 *	it's tagged or not.
-	 *
-	 *	We have to make the decision about
-	 *	tag validity later...
-	 */
-	if ((ar->type != TMPL_ATTR_TYPE_UNPARSED) &&
-	    !ar->ar_da->flags.has_tag) { /* Lists don't have a da */
-		fr_strerror_printf("Attribute '%s' cannot have a tag", ar->ar_da->name);
-		if (err) *err = ATTR_REF_ERROR_TAGGED_ATTRIBUTE_NOT_ALLOWED;
-	error:
-		return -1;
-	}
-
-	fr_sbuff_advance(name, 1);	/* Only advance after we're sure we should be parsing a tag */
-
-	/*
-	 *	Allow '*' as an explicit wildcard.
-	 */
-	if (fr_sbuff_next_if_char(name, '*')) {
-		ar->ar_tag = TAG_ANY;
-	} else {
-		fr_sbuff_marker_t	m;
-
-		fr_sbuff_marker(&m, name);
-
-		if (fr_sbuff_out(NULL, &ar->ar_tag, name) == 0) {
-			fr_strerror_printf("Invalid tag value");
-			if (err) *err = ATTR_REF_ERROR_INVALID_TAG;
-			fr_sbuff_marker_release(&m);
-			goto error;
-		}
-
-		if (!TAG_VALID_ZERO(ar->ar_tag)) {
-			fr_strerror_printf("Invalid tag value '%i' (should be between 0-31)",
-					   ar->ar_tag);
-			if (err) *err = ATTR_REF_ERROR_INVALID_TAG;
-			fr_sbuff_set(name, &m);
-			fr_sbuff_marker_release(&m);
-			goto error;
-		}
-	}
-
-	return 1;
-}
-
 /** Parse array subscript and in future other filters
  *
  * @param[out] err	Parse error code.
@@ -1634,7 +1520,6 @@ static inline int tmpl_attr_ref_afrom_attr_unparsed_substr(TALLOC_CTX *ctx, attr
 	}
 
 	*ar = (tmpl_attr_t){
-		.ar_tag = TAG_NONE,
 		.ar_num = NUM_ANY,
 		.ar_type = TMPL_ATTR_TYPE_UNPARSED,
 		.ar_unparsed = unparsed
@@ -1739,7 +1624,6 @@ static inline int tmpl_attr_ref_afrom_attr_substr(TALLOC_CTX *ctx, attr_ref_erro
 	if (slen > 0) {
 		MEM(ar = talloc(ctx, tmpl_attr_t));
 		*ar = (tmpl_attr_t){
-			.ar_tag = TAG_NONE,
 			.ar_num = NUM_ANY,
 			.ar_type = TMPL_ATTR_TYPE_NORMAL,
 			.ar_da = da
@@ -1788,7 +1672,6 @@ static inline int tmpl_attr_ref_afrom_attr_substr(TALLOC_CTX *ctx, attr_ref_erro
 			 */
 			MEM(ar = talloc(ctx, tmpl_attr_t));
 			*ar = (tmpl_attr_t){
-				.ar_tag = TAG_NONE,
 				.ar_num = NUM_ANY,
 				.ar_type = TMPL_ATTR_TYPE_NORMAL,
 				.ar_da = da,
@@ -1813,7 +1696,6 @@ static inline int tmpl_attr_ref_afrom_attr_substr(TALLOC_CTX *ctx, attr_ref_erro
 		da_unknown->flags.internal = 1;
 
 		*ar = (tmpl_attr_t){
-			.ar_tag = TAG_NONE,
 			.ar_num = NUM_ANY,
 			.ar_type = TMPL_ATTR_TYPE_UNKNOWN,
 			.ar_unknown = da_unknown,
@@ -1897,11 +1779,6 @@ check_attr:
 	}
 
 do_suffix:
-	/*
-	 *	Remove tag parse call when we move to group based tags.
-	 */
-	if (tmpl_attr_ref_parse_tag(err, ar, name) < 0) goto error;
-
 	/*
 	 *	Parse the attribute reference filter
 	 */
@@ -2261,7 +2138,7 @@ ssize_t tmpl_afrom_attr_str(TALLOC_CTX *ctx, attr_ref_error_t *err,
 	if (!fr_cond_assert(*out)) return -1;
 
 	if (slen != name_len) {
-		/* This looks wrong, but it produces meaningful errors for unknown attrs with tags */
+		/* This looks wrong, but it produces meaningful errors for unknown attrs */
 		fr_strerror_printf("Unexpected text after %s",
 				   fr_table_str_by_value(tmpl_type_table, (*out)->type, "<INVALID>"));
 		return -slen;
@@ -3792,13 +3669,6 @@ ssize_t tmpl_print_attr_str(fr_sbuff_t *out, tmpl_t const *vpt)
 		}
 
 		/*
-		 *	Add a tag to each component
-		 */
-		if (TAG_VALID(ar->ar_tag)) {
-			FR_SBUFF_IN_SPRINTF_RETURN(&our_out, ":%i", ar->ar_tag);
-		}
-
-		/*
 		 *	Add array subscript.
 		 *
 		 *	Will later be complex filters.
@@ -3915,8 +3785,6 @@ ssize_t tmpl_print(fr_sbuff_t *out, tmpl_t const *vpt)
 	return fr_sbuff_set(out, &our_out);
 }
 
-#define TMPL_TAG_MATCH(_a, _t) ((_a->da == tmpl_da(_t)) && ATTR_TAG_MATCH(_a, tmpl_tag(_t)))
-
 static void *_tmpl_cursor_next(void **prev, void *curr, void *ctx)
 {
 	VALUE_PAIR	*c, *p, *fc = NULL, *fp = NULL;
@@ -3940,20 +3808,16 @@ static void *_tmpl_cursor_next(void **prev, void *curr, void *ctx)
 		case NUM_COUNT:				/* Iterator is called multiple time to get the count */
 			for (c = curr, p = *prev; c; p = c, c = c->next) {
 			     	VP_VERIFY(c);
-				if (TMPL_TAG_MATCH(c, vpt)) {
-					*prev = p;
-					return c;
-				}
+				*prev = p;
+				return c;
 			}
 			goto null_result;
 
 		case NUM_LAST:				/* Get the last instance of a VALUE_PAIR */
 			for (c = curr, p = *prev; c; p = c, c = c->next) {
 			     	VP_VERIFY(c);
-				if (TMPL_TAG_MATCH(c, vpt)) {
-				    	fp = p;
-					fc = c;
-				}
+				fp = p;
+				fc = c;
 			}
 			*prev = fp;
 			return fc;
@@ -3964,11 +3828,9 @@ static void *_tmpl_cursor_next(void **prev, void *curr, void *ctx)
 			     c && (num >= 0);
 			     p = c, c = c->next) {
 			     	VP_VERIFY(c);
-				if (TMPL_TAG_MATCH(c, vpt)) {
-					fp = p;
-					fc = c;
-					num--;
-				}
+				fp = p;
+				fc = c;
+				num--;
 			}
 			if (num >= 0) goto null_result;	/* Not enough entries */
 			*prev = fp;
@@ -4030,7 +3892,7 @@ static void *_tmpl_cursor_next(void **prev, void *curr, void *ctx)
  *	- -3 if context could not be found (no parent #REQUEST available).
  * @param cursor to store iterator state.
  * @param request The current #REQUEST.
- * @param vpt specifying the #VALUE_PAIR type/tag or list to iterate over.
+ * @param vpt specifying the #VALUE_PAIR type or list to iterate over.
  * @return
  *	- First #VALUE_PAIR specified by the #tmpl_t.
  *	- NULL if no matching #VALUE_PAIR found, and NULL on error.
@@ -4086,7 +3948,7 @@ VALUE_PAIR *tmpl_cursor_init(int *err, fr_cursor_t *cursor, REQUEST *request, tm
  * @param ctx to allocate new #VALUE_PAIR in.
  * @param out Where to write the copied #VALUE_PAIR (s).
  * @param request The current #REQUEST.
- * @param vpt specifying the #VALUE_PAIR type/tag or list to copy.
+ * @param vpt specifying the #VALUE_PAIR type or list to copy.
  *	Must be one of the following types:
  *	- #TMPL_TYPE_LIST
  *	- #TMPL_TYPE_ATTR
@@ -4130,7 +3992,7 @@ int tmpl_copy_vps(TALLOC_CTX *ctx, VALUE_PAIR **out, REQUEST *request, tmpl_t co
  *
  * @param[out] out where to write the retrieved vp.
  * @param[in] request The current #REQUEST.
- * @param[in] vpt specifying the #VALUE_PAIR type/tag to find.
+ * @param[in] vpt specifying the #VALUE_PAIR type to find.
  *	Must be one of the following types:
  *	- #TMPL_TYPE_LIST
  *	- #TMPL_TYPE_ATTR
@@ -4159,7 +4021,7 @@ int tmpl_find_vp(VALUE_PAIR **out, REQUEST *request, tmpl_t const *vpt)
  *
  * @param[out] out where to write the retrieved or created vp.
  * @param[in] request The current #REQUEST.
- * @param[in] vpt specifying the #VALUE_PAIR type/tag to retrieve or create.  Must be #TMPL_TYPE_ATTR.
+ * @param[in] vpt specifying the #VALUE_PAIR type to retrieve or create.  Must be #TMPL_TYPE_ATTR.
  * @return
  *	- 1 on success a pair was created.
  *	- 0 on success a pair was found.
@@ -4430,22 +4292,6 @@ void tmpl_verify(char const *file, int line, tmpl_t const *vpt)
 		} else {
 			fr_dict_attr_t const	*da;
 			fr_dict_t const		*dict;
-
-			if (!tmpl_da(vpt)->flags.has_tag &&
-			    (tmpl_tag(vpt) != TAG_NONE) && (tmpl_tag(vpt) != TAG_ANY)) {
-				fr_fatal_assert_fail("CONSISTENCY CHECK FAILED %s[%u]: TMPL_TYPE_ATTR "
-						     "da is marked as not having a tag, but the template has a tag",
-						     file, line);
-			}
-
-#if 0
-			if (tmpl_da(vpt)->flags.has_tag &&
-			    !TAG_VALID_ZERO(tmpl_tag(vpt))) {
-				fr_fatal_assert_fail("CONSISTENCY CHECK FAILED %s[%u]: TMPL_TYPE_ATTR "
-						     "da is marked as not having a tag, but the template has an invalid tag",
-						     file, line);
-			}
-#endif
 
 			/*
 			 *	Attribute may be present with multiple names

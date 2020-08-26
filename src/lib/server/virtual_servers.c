@@ -1069,7 +1069,7 @@ rlm_rcode_t virtual_server_process_auth(REQUEST *request, CONF_SECTION *virtual_
 	CONF_SECTION	*auth_cs = NULL;
 	char const	*auth_name;
 
-	vp = fr_pair_find_by_da(request->control, attr_auth_type, TAG_ANY);
+	vp = fr_pair_find_by_da(request->control, attr_auth_type);
 	if (!vp) {
 		RDEBUG2("No &control:Auth-Type found");
 	fail:

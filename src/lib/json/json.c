@@ -291,29 +291,27 @@ size_t fr_json_from_pair(char *out, size_t outlen, VALUE_PAIR const *vp)
 {
 	size_t len, freespace = outlen;
 
-	if (!vp->da->flags.has_tag) {
-		switch (vp->vp_type) {
-		case FR_TYPE_UINT32:
-			if (vp->da->flags.has_value) break;
+	switch (vp->vp_type) {
+	case FR_TYPE_UINT32:
+		if (vp->da->flags.has_value) break;
 
-			return snprintf(out, freespace, "%u", vp->vp_uint32);
+		return snprintf(out, freespace, "%u", vp->vp_uint32);
 
-		case FR_TYPE_UINT16:
-			if (vp->da->flags.has_value) break;
+	case FR_TYPE_UINT16:
+		if (vp->da->flags.has_value) break;
 
-			return snprintf(out, freespace, "%u", (unsigned int) vp->vp_uint16);
+		return snprintf(out, freespace, "%u", (unsigned int) vp->vp_uint16);
 
-		case FR_TYPE_UINT8:
-			if (vp->da->flags.has_value) break;
+	case FR_TYPE_UINT8:
+		if (vp->da->flags.has_value) break;
 
-			return snprintf(out, freespace, "%u", (unsigned int) vp->vp_uint8);
+		return snprintf(out, freespace, "%u", (unsigned int) vp->vp_uint8);
 
-		case FR_TYPE_INT32:
-			return snprintf(out, freespace, "%d", vp->vp_int32);
+	case FR_TYPE_INT32:
+		return snprintf(out, freespace, "%d", vp->vp_int32);
 
-		default:
-			break;
-		}
+	default:
+		break;
 	}
 
 	if (vp->vp_type == FR_TYPE_STRING) {

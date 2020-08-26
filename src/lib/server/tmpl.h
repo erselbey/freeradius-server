@@ -267,8 +267,6 @@ typedef struct {
 	} unknown;
 
 	int16_t			_CONST num;		//!< For array references.
-	int8_t			_CONST tag;		//!< For tag references.
-
 	tmpl_attr_type_t	_CONST type;
 } tmpl_attr_t;
 
@@ -291,7 +289,6 @@ typedef struct {
 #define ar_unknown			unknown.da
 #define ar_unparsed			unknown.name
 #define ar_num				num
-#define ar_tag				tag
 /** @} */
 
 /** A source or sink of value data.
@@ -418,15 +415,6 @@ static inline int16_t tmpl_num(tmpl_t const *vpt)
 			 tmpl_is_list(vpt));
 
 	return ((tmpl_attr_t *)fr_dlist_tail(&vpt->data.attribute.ar))->ar_num;
-}
-
-static inline int8_t tmpl_tag(tmpl_t const *vpt)
-{
-	tmpl_assert_type(tmpl_is_attr(vpt) ||
-			 tmpl_is_attr_unparsed(vpt) ||			/* Remove once tags are part of ar dlist */
-			 tmpl_is_list(vpt));
-
-	return ((tmpl_attr_t *)fr_dlist_tail(&vpt->data.attribute.ar))->ar_tag;
 }
 
 static inline pair_list_t tmpl_list(tmpl_t const *vpt)
@@ -569,7 +557,6 @@ typedef enum {
 	ATTR_REF_ERROR_FOREIGN_ATTRIBUTES_NOT_ALLOWED,	//!< Attribute resolved in a dictionary different
 							///< to the one specified.
 	ATTR_REF_ERROR_TAGGED_ATTRIBUTE_NOT_ALLOWED,	//!< Tagged attributes not allowed here.
-	ATTR_REF_ERROR_INVALID_TAG,			//!< Invalid tag value.
 	ATTR_REF_ERROR_INVALID_ARRAY_INDEX,		//!< Invalid array index.
 	ATTR_REF_ERROR_NESTING_TOO_DEEP,		//!< Too many levels of nesting.
 	ATTR_REF_ERROR_MISSING_TERMINATOR		//!< Unexpected text found after attribute reference
@@ -672,14 +659,12 @@ void			tmpl_attr_rewrite_leaf_num(tmpl_t *vpt, int16_t from, int16_t to) CC_HINT
 
 void			tmpl_attr_rewrite_num(tmpl_t *vpt, int16_t from, int16_t to) CC_HINT(nonnull);
 
-void			tmpl_attr_set_leaf_tag(tmpl_t *vpt, int8_t tag) CC_HINT(nonnull);
-
 void			tmpl_attr_set_request(tmpl_t *vpt, request_ref_t request) CC_HINT(nonnull);
 
 void			tmpl_attr_set_list(tmpl_t *vpt, pair_list_t list) CC_HINT(nonnull);
 
 int			tmpl_attr_afrom_list(TALLOC_CTX *ctx, tmpl_t **out, tmpl_t const *list,
-					     fr_dict_attr_t const *da, int8_t tag);
+					     fr_dict_attr_t const *da);
 
 ssize_t			tmpl_afrom_attr_substr(TALLOC_CTX *ctx, attr_ref_error_t *err,
 					       tmpl_t **out, fr_sbuff_t *name,

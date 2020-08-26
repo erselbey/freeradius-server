@@ -717,7 +717,7 @@ static void _lua_fr_request_register(lua_State *L, REQUEST *request)
 		fr_cursor_t 	cursor;
 
 		/* Attribute list table */
-		fr_pair_list_sort(&request->packet->vps, fr_pair_cmp_by_da_tag);
+		fr_pair_list_sort(&request->packet->vps, fr_pair_cmp_by_da);
 		fr_cursor_init(&cursor, &request->packet->vps);
 
 		/*

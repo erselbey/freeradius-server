@@ -700,7 +700,6 @@ int map_afrom_vp(TALLOC_CTX *ctx, vp_map_t **out, VALUE_PAIR *vp, tmpl_rules_t c
 
 	tmpl_attr_set_da(map->lhs, vp->da);
 	tmpl_attr_set_leaf_num(map->lhs, NUM_ANY);
-	tmpl_attr_set_leaf_tag(map->lhs, vp->tag);
 
 	tmpl_attr_set_request(map->lhs, rules->request_def);
 	tmpl_attr_set_list(map->lhs, rules->list_def);
@@ -879,7 +878,6 @@ static int map_exec_to_vp(TALLOC_CTX *ctx, VALUE_PAIR **out, REQUEST *request, v
 
 		MEM(vp = fr_pair_afrom_da(ctx, tmpl_da(map->lhs)));
 		vp->op = map->op;
-		vp->tag = tmpl_tag(map->lhs);
 		if (fr_pair_value_from_str(vp, answer, -1, '"', false) < 0) {
 			RPEDEBUG("Failed parsing exec output");
 			fr_pair_list_free(&vp);
@@ -997,7 +995,6 @@ int map_to_vp(TALLOC_CTX *ctx, VALUE_PAIR **out, REQUEST *request, vp_map_t cons
 			goto error;
 		}
 		n->op = map->op;
-		n->tag = tmpl_tag(map->lhs);
 		*out = n;
 		break;
 
@@ -1022,7 +1019,6 @@ int map_to_vp(TALLOC_CTX *ctx, VALUE_PAIR **out, REQUEST *request, vp_map_t cons
 			goto error;
 		}
 		n->op = map->op;
-		n->tag = tmpl_tag(map->lhs);
 		*out = n;
 		break;
 
@@ -1038,7 +1034,6 @@ int map_to_vp(TALLOC_CTX *ctx, VALUE_PAIR **out, REQUEST *request, vp_map_t cons
 			goto error;
 		}
 		n->op = map->op;
-		n->tag = tmpl_tag(map->lhs);
 		*out = n;
 		break;
 
@@ -1081,7 +1076,6 @@ int map_to_vp(TALLOC_CTX *ctx, VALUE_PAIR **out, REQUEST *request, vp_map_t cons
 				fr_assert((n->vp_type != FR_TYPE_STRING) || (n->vp_strvalue != NULL));
 
 				n->op = map->op;
-				n->tag = tmpl_tag(map->lhs);
 				fr_cursor_append(&to, n);
 			}
 
@@ -1095,7 +1089,6 @@ int map_to_vp(TALLOC_CTX *ctx, VALUE_PAIR **out, REQUEST *request, vp_map_t cons
 		for (; vp; vp = fr_cursor_next(&from)) {
 			vp->da = tmpl_da(map->lhs);
 			vp->op = map->op;
-			vp->tag = tmpl_tag(map->lhs);
 		}
 		*out = found;
 	}
@@ -1122,7 +1115,6 @@ int map_to_vp(TALLOC_CTX *ctx, VALUE_PAIR **out, REQUEST *request, vp_map_t cons
 			}
 		}
 		n->op = map->op;
-		n->tag = tmpl_tag(map->lhs);
 		*out = n;
 
 		MAP_VERIFY(map);
@@ -1370,11 +1362,11 @@ int map_to_request(REQUEST *request, vp_map_t const *map, radius_map_getvalue_t 
 	num = tmpl_num(map->lhs);
 	(void) fr_pair_cursor_init(&dst_list, list);
 	if ((num != NUM_ALL) && (num != NUM_ANY)) {
-		while ((dst = fr_pair_cursor_next_by_da(&dst_list, tmpl_da(map->lhs), tmpl_tag(map->lhs)))) {
+		while ((dst = fr_pair_cursor_next_by_da(&dst_list, tmpl_da(map->lhs)))) {
 			if (num-- == 0) break;
 		}
 	} else {
-		dst = fr_pair_cursor_next_by_da(&dst_list, tmpl_da(map->lhs), tmpl_tag(map->lhs));
+		dst = fr_pair_cursor_next_by_da(&dst_list, tmpl_da(map->lhs));
 	}
 	fr_assert(!dst || (tmpl_da(map->lhs) == dst->da));
 
@@ -1394,11 +1386,10 @@ int map_to_request(REQUEST *request, vp_map_t const *map, radius_map_getvalue_t 
 		if (!dst) goto finish;
 
 		/*
-		 *	Wildcard: delete all of the matching ones, based on tag.
+		 *	Wildcard: delete all of the matching ones
 		 */
 		if (tmpl_num(map->lhs) == NUM_ANY) {
-			fr_pair_delete_by_child_num(list, tmpl_da(map->lhs)->parent,
-						    tmpl_da(map->lhs)->attr, tmpl_tag(map->lhs));
+			fr_pair_delete_by_child_num(list, tmpl_da(map->lhs)->parent, tmpl_da(map->lhs)->attr);
 			dst = NULL;
 		/*
 		 *	We've found the Nth one.  Delete it, and only it.
@@ -1457,7 +1448,7 @@ int map_to_request(REQUEST *request, vp_map_t const *map, radius_map_getvalue_t 
 		 */
 		for (dst = fr_pair_cursor_current(&dst_list);
 		     dst;
-		     dst = fr_pair_cursor_next_by_da(&dst_list, tmpl_da(map->lhs), tmpl_tag(map->lhs))) {
+		     dst = fr_pair_cursor_next_by_da(&dst_list, tmpl_da(map->lhs))) {
 			for (vp = fr_pair_cursor_head(&src_list);
 			     vp;
 			     vp = fr_pair_cursor_next(&src_list)) {
@@ -1474,17 +1465,6 @@ int map_to_request(REQUEST *request, vp_map_t const *map, radius_map_getvalue_t 
 		fr_pair_list_free(&head);
 		if (!found) goto finish;
 		goto update;
-	}
-
-	/*
-	 *	Another fixup pass to set tags on attributes we're about to insert
-	 */
-	if (tmpl_tag(map->lhs) != TAG_ANY) {
-		for (vp = fr_pair_cursor_init(&src_list, &head);
-		     vp;
-		     vp = fr_pair_cursor_next(&src_list)) {
-			vp->tag = tmpl_tag(map->lhs);
-		}
 	}
 
 	switch (map->op) {
@@ -1543,8 +1523,8 @@ int map_to_request(REQUEST *request, vp_map_t const *map, radius_map_getvalue_t 
 	{
 		VALUE_PAIR *a, *b;
 
-		fr_pair_list_sort(&head, fr_pair_cmp_by_da_tag);
-		fr_pair_list_sort(list, fr_pair_cmp_by_da_tag);
+		fr_pair_list_sort(&head, fr_pair_cmp_by_da);
+		fr_pair_list_sort(list, fr_pair_cmp_by_da);
 
 		fr_pair_cursor_head(&dst_list);
 
@@ -1556,7 +1536,7 @@ int map_to_request(REQUEST *request, vp_map_t const *map, radius_map_getvalue_t 
 			     a = fr_pair_cursor_next(&dst_list)) {
 				int8_t cmp;
 
-				cmp = fr_pair_cmp_by_da_tag(a, b);	/* attribute and tag match */
+				cmp = fr_pair_cmp_by_da(a, b);	/* attribute and tag match */
 				if (cmp > 0) break;
 				else if (cmp < 0) continue;
 
@@ -1684,7 +1664,7 @@ void map_debug_log(REQUEST *request, vp_map_t const *map, VALUE_PAIR const *vp)
 		/*
 		 *	Fudge a temporary tmpl that describes the attribute we're copying
 		 *	this is a combination of the original list tmpl, and values from
-		 *	the VALUE_PAIR. This way, we get tag info included.
+		 *	the VALUE_PAIR.
 		 */
 		tmpl_attr_copy(vpt, map->rhs);
 		tmpl_attr_set_leaf_da(vpt, vp->da);

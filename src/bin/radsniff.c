@@ -360,7 +360,7 @@ static void rs_packet_print_csv(uint64_t count, rs_status_t status, fr_pcap_t *h
 		VALUE_PAIR *vp;
 
 		for (i = 0; i < conf->list_da_num; i++) {
-			vp = fr_pair_find_by_da(packet->vps, conf->list_da[i], TAG_ANY);
+			vp = fr_pair_find_by_da(packet->vps, conf->list_da[i]);
 			if (vp && (vp->vp_length > 0)) {
 				if (conf->list_da[i]->type == FR_TYPE_STRING) {
 					*p++ = '"';
@@ -483,7 +483,7 @@ static void rs_packet_print_fancy(uint64_t count, rs_status_t status, fr_pcap_t 
 			char vector[(RADIUS_AUTH_VECTOR_LENGTH * 2) + 1];
 
 			if (packet->vps) {
-				fr_pair_list_sort(&packet->vps, fr_pair_cmp_by_da_tag);
+				fr_pair_list_sort(&packet->vps, fr_pair_cmp_by_da);
 				fr_pair_list_log(&default_log, packet->vps);
 			}
 
@@ -970,7 +970,7 @@ static int rs_get_pairs(TALLOC_CTX *ctx, VALUE_PAIR **out, VALUE_PAIR *vps, fr_d
 	fr_pair_cursor_init(&list_cursor, &last_match);
 	fr_pair_cursor_init(&out_cursor, out);
 	for (i = 0; i < num; i++) {
-		match = fr_pair_cursor_next_by_da(&list_cursor, da[i], TAG_ANY);
+		match = fr_pair_cursor_next_by_da(&list_cursor, da[i]);
 		if (!match) {
 			fr_pair_cursor_init(&list_cursor, &last_match);
 			continue;
@@ -986,7 +986,7 @@ static int rs_get_pairs(TALLOC_CTX *ctx, VALUE_PAIR **out, VALUE_PAIR *vps, fr_d
 			last_match = match;
 
 			count++;
-		} while ((match = fr_pair_cursor_next_by_da(&list_cursor, da[i], TAG_ANY)));
+		} while ((match = fr_pair_cursor_next_by_da(&list_cursor, da[i])));
 	}
 
 	return count;
@@ -1445,7 +1445,7 @@ static void rs_packet_process(uint64_t count, rs_event_t *event, struct pcap_pkt
 			 *	Now verify the packet passes the attribute filter
 			 */
 			if (conf->filter_response_vps) {
-				fr_pair_list_sort(&packet->vps, fr_pair_cmp_by_da_tag);
+				fr_pair_list_sort(&packet->vps, fr_pair_cmp_by_da);
 				if (!fr_pair_validate_relaxed(NULL, conf->filter_response_vps, packet->vps)) {
 					goto drop_response;
 				}
@@ -1570,7 +1570,7 @@ static void rs_packet_process(uint64_t count, rs_event_t *event, struct pcap_pkt
 				return;
 			}
 
-			fr_pair_list_sort(&packet->vps, fr_pair_cmp_by_da_tag);
+			fr_pair_list_sort(&packet->vps, fr_pair_cmp_by_da);
 		}
 
 		/*
@@ -2032,7 +2032,7 @@ static int rs_build_filter(VALUE_PAIR **out, char const *filter)
 	/*
 	 *	This allows efficient list comparisons later
 	 */
-	fr_pair_list_sort(out, fr_pair_cmp_by_da_tag);
+	fr_pair_list_sort(out, fr_pair_cmp_by_da);
 
 	return 0;
 }
