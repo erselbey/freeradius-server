@@ -885,7 +885,7 @@ static int CC_HINT(nonnull(4,5)) cf_pair_parse_internal(TALLOC_CTX *ctx, void *o
  *			Should be one of the following ``data`` types,
  *			and one or more of the following ``flag`` types or'd together:
  *	- ``data`` #FR_TYPE_TMPL 		- @copybrief FR_TYPE_TMPL
- *					  	  Feeds the value into #tmpl_afrom_str. Value can be
+ *					  	  Feeds the value into #tmpl_afrom_substr. Value can be
  *					  	  obtained when processing requests, with #tmpl_expand or #tmpl_aexpand.
  *	- ``data`` #FR_TYPE_BOOL		- @copybrief FR_TYPE_BOOL
  *	- ``data`` #FR_TYPE_UINT32		- @copybrief FR_TYPE_UINT32
@@ -1399,6 +1399,8 @@ int cf_section_parse_pass2(void *base, CONF_SECTION *cs)
 		CONF_PARSER	*rule;
 		void		*data;
 		int		type;
+		CONF_DATA	*cd;
+		fr_dict_t const	*dict = NULL;
 
 		rule = cf_data_value(rule_cd);
 
@@ -1474,6 +1476,13 @@ int cf_section_parse_pass2(void *base, CONF_SECTION *cs)
 		}
 
 		/*
+		 *	Search for dictionary data somewhere in the virtual
+		 *      server.
+		 */
+		cd = cf_data_find_in_parent(cs, fr_dict_t **, "dictionary");
+		if (cd) dict = *((fr_dict_t **)cf_data_value(cd));
+
+		/*
 		 *	Parse (and throw away) the xlat string (for validation).
 		 *
 		 *	FIXME: All of these should be converted from FR_TYPE_XLAT
@@ -1489,7 +1498,14 @@ int cf_section_parse_pass2(void *base, CONF_SECTION *cs)
 			/*
 			 *	xlat expansions should be parseable.
 			 */
-			slen = xlat_tokenize(cs, &xlat, cp->value, talloc_array_length(cp->value) - 1, NULL);
+			slen = xlat_tokenize(cs, &xlat,
+					     &FR_SBUFF_IN(cp->value, talloc_array_length(cp->value) - 1), NULL,
+					     &(tmpl_rules_t){
+						.dict_def = dict,
+						.allow_unknown = false,
+						.allow_unparsed = false,
+						.allow_foreign = (dict == NULL)
+					     });
 			if (slen < 0) {
 				char *spaces, *text;
 
